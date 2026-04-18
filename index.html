@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Share → Webhook</title>
+  <style>
+    body { font-family: system-ui; background: #111; color: #0f0; text-align: center; padding: 50px; }
+    input, button { padding: 12px; margin: 10px; font-size: 16px; }
+    button { background: #0f0; color: #000; border: none; cursor: pointer; }
+    button:hover { background: #0c0; }
+    #status { margin-top: 20px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h1>🖥️ Screen Share → Webhook</h1>
+  
+  <input type="text" id="webhook" placeholder="Paste your webhook URL here" style="width: 80%; max-width: 600px;">
+  <br>
+  <button onclick="startCapture()">🚀 START SCREEN SHARE</button>
+  <button onclick="stopCapture()" style="background:#f00;color:#fff;">⛔ STOP</button>
+  
+  <div id="status">Waiting...</div>
+
+  <script>
+    let stream = null;
+    let interval = null;
+    const status = document.getElementById('status');
+    const webhookInput = document.getElementById('webhook');
+
+    async function startCapture() {
+      const webhookUrl = webhookInput.value.trim();
+      if (!webhookUrl) {
+        status.textContent = "❌ Enter a webhook URL first!";
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        status.textContent = "✅ Screen sharing started! Sending screenshots...";
+
+        // Capture every 3 seconds (change the number if you want faster/slower)
+        interval = setInterval(() => captureAndSend(webhookUrl), 3000);
+      } catch (err) {
+        status.textContent = "❌ Permission denied or cancelled.";
+        console.error(err);
+      }
+    }
+
+    function stopCapture() {
+      if (interval) clearInterval(interval);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      status.textContent = "🛑 Stopped.";
+    }
+
+    async function captureAndSend(webhookUrl) {
+      if (!stream) return;
+
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+
+      // Wait for video to be ready
+      video.onloadedmetadata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to blob and send
+        canvas.toBlob(async (blob) => {
+          const formData = new FormData();
+          formData.append('file', blob, `screenshot-${Date.now()}.png`);
+          formData.append('content', `📸 New screenshot at ${new Date().toLocaleTimeString()}`);
+
+          try {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              body: formData
+            });
+            console.log("✅ Screenshot sent");
+          } catch (e) {
+            console.error("Failed to send:", e);
+          }
+        }, 'image/png');
+      };
+    }
+  </script>
+</body>
+</html>
